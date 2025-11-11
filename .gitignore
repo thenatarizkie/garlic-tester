@@ -20,18 +20,11 @@ Thumbs.db
 dist/
 
 # Docs
+docs/
 CLAUDE.md
-ELECTRON.md
-PLAYER_ID_API.md
-UUID_FEATURE.md
-WEBSOCKET_SETUP.md
-GARLIC_COMMAND_SYSTEM.md
-QUICK_REFERENCE.md
-GARLIC_COMMANDS_API.md
-SETUP.md
+resources/
 
 # Logs
 error.log
 Garlic Player API Client Setup 1.0.0.exe
 nul
-garlic-player.exe

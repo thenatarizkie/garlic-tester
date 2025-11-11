@@ -40,6 +40,25 @@ function saveConfig(config) {
 
 // Function to find installed Garlic Player
 function findGarlicPlayer() {
+  const isDev = !app.isPackaged;
+
+  // PRIORITY 1: Check bundled Garlic Player in resources folder (portable version)
+  let bundledPath;
+  if (isDev) {
+    // Development: resources folder is in project root
+    bundledPath = path.join(__dirname, "..", "resources", "garlic-player", "garlic-player.exe");
+  } else {
+    // Production: resources folder is bundled with the app
+    bundledPath = path.join(process.resourcesPath, "app", "resources", "garlic-player", "garlic-player.exe");
+  }
+
+  if (fs.existsSync(bundledPath)) {
+    console.log("Found bundled Garlic Player at:", bundledPath);
+    return bundledPath;
+  }
+
+  // PRIORITY 2: Fallback to system-installed Garlic Player (for backward compatibility)
+  console.log("Bundled Garlic Player not found, checking system installation...");
   const possiblePaths = [
     // Common installation paths for Windows (including bin subdirectory)
     "C:\\Program Files\\garlic-player\\bin\\garlic-player.exe",
@@ -63,7 +82,7 @@ function findGarlicPlayer() {
   // Check each possible path
   for (const garlicPath of possiblePaths) {
     if (fs.existsSync(garlicPath)) {
-      console.log("Found Garlic Player at:", garlicPath);
+      console.log("Found system-installed Garlic Player at:", garlicPath);
       return garlicPath;
     }
   }
