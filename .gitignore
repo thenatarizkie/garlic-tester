@@ -1,0 +1,34 @@
+# Dependencies
+node_modules/
+package-lock.json
+
+# Screenshots
+public/screenshots/*.jpg
+public/screenshots/*.png
+
+# Environment variables
+.env
+.env.local
+
+# Vercel
+.vercel
+
+# OS
+.DS_Store
+Thumbs.db
+.claude
+dist/
+
+# Docs
+CLAUDE.md
+ELECTRON.md
+PLAYER_ID_API.md
+UUID_FEATURE.md
+WEBSOCKET_SETUP.md
+GARLIC_COMMAND_SYSTEM.md
+QUICK_REFERENCE.md
+
+# Logs
+error.log
+Garlic Player API Client Setup 1.0.0.exe
+nul

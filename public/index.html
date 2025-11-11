@@ -1,0 +1,933 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Garlic Player API Client</title>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- WebSocket script - COMMENTED OUT -->
+    <!-- <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script> -->
+    <style>
+        #console {
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body class="bg-gray-50 p-5 md:p-8">
+
+<div class="max-w-6xl mx-auto">
+    <h2 class="text-3xl font-bold text-gray-800 mb-6">Garlic Player API Client</h2>
+
+    <!-- Connection Settings -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <div class="bg-blue-50 border-l-4 border-blue-500 p-4 mb-4">
+            <p class="text-sm text-blue-700">
+                <strong>ℹ️ Auto-Start Enabled:</strong> The app will automatically connect to Garlic Player and start screenshot capture if configured in .env file (DEFAULT_GARLIC_IP, DEFAULT_GARLIC_USERNAME, DEFAULT_GARLIC_PASSWORD, AUTO_SCREENSHOT_ENABLED=true).
+            </p>
+        </div>
+
+        <div class="flex flex-wrap gap-3 items-center">
+            <label class="text-gray-700 font-medium">Player IP:</label>
+            <select id="ip" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 min-w-[150px]" onchange="handleIPChange()">
+                <option value="127.0.0.1" selected>127.0.0.1 (localhost)</option>
+                <option value="custom">Custom IP...</option>
+            </select>
+            <input type="text" id="customIP" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-[150px] hidden" placeholder="Enter IP..." />
+            <button onclick="getMyLocalIP()" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors">Get My Local IP</button>
+            <button onclick="getToken()" class="bg-green-500 hover:bg-green-600 text-white px-4 py-2 rounded-md transition-colors">Get Access Token</button>
+        </div>
+
+        <div class="flex flex-wrap gap-3 items-center mt-4">
+            <label class="text-gray-700 font-medium">Username:</label>
+            <input type="text" id="username" value="admin" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+
+            <label class="text-gray-700 font-medium ml-4">Password:</label>
+            <input type="password" id="password" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500" />
+        </div>
+    </div>
+
+    <!-- Content Management -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Content Management</h3>
+        <div class="flex flex-wrap gap-3 items-center">
+            <label class="text-gray-700 font-medium">Content URI:</label>
+            <input type="text" id="contentUri" placeholder="https://example.com/content.smil" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 flex-1 min-w-[300px]" />
+            <button onclick="updateContentUrl()" disabled id="btnUpdateContent" class="bg-purple-500 hover:bg-purple-600 text-white px-4 py-2 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">Update Content URL</button>
+            <button onclick="reloadContent()" disabled id="btnReload" class="bg-orange-500 hover:bg-orange-600 text-white px-4 py-2 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">Reload</button>
+        </div>
+    </div>
+
+    <!-- Auto Screenshot Settings -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Auto Screenshot Settings</h3>
+        <div class="flex flex-wrap gap-3 items-center">
+            <label class="flex items-center gap-2">
+                <input type="checkbox" id="autoScreenshotEnabled" onchange="toggleAutoScreenshot()" class="w-5 h-5">
+                <span class="text-gray-700 font-medium">Enable Auto Screenshot</span>
+            </label>
+            <label class="text-gray-700 font-medium ml-4">Interval (minutes):</label>
+            <input type="number" id="screenshotInterval" value="5" min="1" max="60" class="border border-gray-300 rounded-md px-3 py-2 focus:outline-none focus:ring-2 focus:ring-blue-500 w-20" />
+            <button onclick="applyInterval()" disabled id="btnApplyInterval" class="bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">Apply</button>
+            <span id="autoScreenshotStatus" class="text-gray-600 ml-4"></span>
+        </div>
+    </div>
+
+    <!-- Available Actions -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Available Actions</h3>
+        <div class="flex flex-wrap gap-3">
+            <button onclick="getModelInfo()" disabled id="btnModel" class="bg-indigo-500 hover:bg-indigo-600 text-white px-4 py-2 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">Get Model Info</button>
+            <button onclick="listFiles()" disabled id="btnFiles" class="bg-teal-500 hover:bg-teal-600 text-white px-4 py-2 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">List Files</button>
+            <button onclick="takeScreenshot()" disabled id="btnScreenshot" class="bg-pink-500 hover:bg-pink-600 text-white px-4 py-2 rounded-md transition-colors disabled:bg-gray-300 disabled:cursor-not-allowed">Take Screenshot</button>
+        </div>
+    </div>
+
+    <!-- Console Output -->
+    <div class="bg-white rounded-lg shadow-md p-6 mb-6">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Console Output</h3>
+        <div id="console" class="bg-gray-900 text-green-400 p-4 rounded-md h-[350px] overflow-y-auto whitespace-pre-wrap">[Console Output Here]</div>
+    </div>
+
+    <!-- Screenshot Area -->
+    <div id="screenshotArea" class="bg-white rounded-lg shadow-md p-6 hidden">
+        <h3 class="text-xl font-bold text-gray-800 mb-4">Latest Screenshot</h3>
+        <img id="screenshotImg" src="" alt="Screenshot" class="max-w-full h-auto border border-gray-300 rounded-md">
+        <p id="screenshotInfo" class="mt-3 text-gray-600"></p>
+    </div>
+</div>
+
+<script>
+let accessToken = "";
+let playerUUID = ""; // UUID Garlic Player
+let playerInfo = {}; // Full model info
+let appConfig = {};
+let autoScreenshotTimer = null;
+let autoScreenshotIntervalMinutes = 5;
+// let socket = null; // WebSocket - COMMENTED OUT
+
+// Connect to Socket.IO server - COMMENTED OUT
+// function connectSocketIO() {
+//     socket = io('http://localhost:3005');
+//
+//     socket.on('connect', () => {
+//         log('🔌 Socket.IO connected for real-time updates');
+//     });
+//
+//     socket.on('disconnect', () => {
+//         log('🔌 Socket.IO disconnected');
+//     });
+//
+//     // Listen for screenshot upload events from adnova-be
+//     socket.on('screenshot-uploaded', (data) => {
+//         log('\n🔔 REAL-TIME EVENT: Screenshot uploaded!');
+//         log(`   Player: ${data.player_name} (${data.player_id})`);
+//         log(`   URL: ${data.url}`);
+//         log(`   Timestamp: ${data.created_at}`);
+//
+//         // Show desktop notification
+//         showDesktopNotification('Screenshot Uploaded', data.message, data.url);
+//
+//         // Optional: Display screenshot in the UI
+//         if (data.url) {
+//             const screenshotArea = document.getElementById("screenshotArea");
+//             const screenshotImg = document.getElementById("screenshotImg");
+//             const screenshotInfo = document.getElementById("screenshotInfo");
+//
+//             screenshotImg.src = data.url + "?t=" + new Date().getTime();
+//             screenshotInfo.textContent = `From ${data.player_name} - ${data.created_at}`;
+//             screenshotArea.classList.remove("hidden");
+//         }
+//     });
+// }
+
+// Desktop notification function
+function showDesktopNotification(title, body, url = null) {
+    // Check if browser supports notifications
+    if (!("Notification" in window)) {
+        log("⚠️ This browser does not support desktop notifications");
+        return;
+    }
+
+    // Check notification permission
+    if (Notification.permission === "granted") {
+        createNotification(title, body, url);
+    } else if (Notification.permission !== "denied") {
+        Notification.requestPermission().then((permission) => {
+            if (permission === "granted") {
+                createNotification(title, body, url);
+            }
+        });
+    }
+}
+
+function createNotification(title, body, url) {
+    const notification = new Notification(title, {
+        body: body,
+        icon: '/favicon.ico', // Add your icon here
+        tag: 'garlic-screenshot',
+        requireInteraction: false
+    });
+
+    notification.onclick = function() {
+        if (url) {
+            window.open(url, '_blank');
+        }
+        notification.close();
+    };
+}
+
+// Load configuration on page load
+window.addEventListener('DOMContentLoaded', async () => {
+    // Connect to Socket.IO immediately - COMMENTED OUT
+    // connectSocketIO();
+
+    try {
+        const res = await fetch('/api/config');
+        appConfig = await res.json();
+
+        // Set initial values from config
+        document.getElementById('screenshotInterval').value = appConfig.screenshot_interval_minutes || 5;
+        autoScreenshotIntervalMinutes = appConfig.screenshot_interval_minutes || 5;
+
+        if (appConfig.default_garlic_ip) {
+            // Add default IP to dropdown if configured
+            const ipSelect = document.getElementById('ip');
+            const option = document.createElement('option');
+            option.value = appConfig.default_garlic_ip;
+            option.textContent = `${appConfig.default_garlic_ip} (from .env)`;
+            option.selected = true;
+            ipSelect.insertBefore(option, ipSelect.firstChild);
+        }
+
+        if (appConfig.default_garlic_username) {
+            document.getElementById('username').value = appConfig.default_garlic_username;
+        }
+
+        if (appConfig.default_garlic_password) {
+            document.getElementById('password').value = appConfig.default_garlic_password;
+        }
+
+        log("✅ Configuration loaded");
+        log(`Auto Screenshot: ${appConfig.auto_screenshot_enabled ? 'Enabled' : 'Disabled'}`);
+        log(`Screenshot Interval: ${appConfig.screenshot_interval_minutes} minutes`);
+
+        // Auto-initialize if configured
+        await autoInit();
+    } catch (e) {
+        log("⚠️ Failed to load configuration: " + e.message);
+    }
+});
+
+// Auto-initialize: automatically get token and start auto screenshot
+async function autoInit() {
+    // Check if we have the required configuration
+    if (!appConfig.default_garlic_ip) {
+        log("ℹ️ No default Garlic IP configured. Please set DEFAULT_GARLIC_IP in .env for auto-start.");
+        return;
+    }
+
+    if (!appConfig.default_garlic_username) {
+        log("ℹ️ No default credentials configured. Please set username and password in .env for auto-start.");
+        return;
+    }
+
+    log("🔄 Auto-initializing...");
+    log(`   Target IP: ${appConfig.default_garlic_ip}`);
+    log(`   Username: ${appConfig.default_garlic_username}`);
+
+    // Automatically get token
+    const tokenSuccess = await getToken(true); // true = silent mode
+
+    if (tokenSuccess && appConfig.auto_screenshot_enabled) {
+        log("🎯 Auto-starting screenshot capture...");
+
+        // Enable auto screenshot checkbox
+        document.getElementById('autoScreenshotEnabled').checked = true;
+        document.getElementById('btnApplyInterval').disabled = false;
+
+        // Start auto screenshot
+        startAutoScreenshot();
+    } else if (!tokenSuccess) {
+        log("❌ Auto-initialization failed. Please check your Garlic Player connection.");
+    } else if (!appConfig.auto_screenshot_enabled) {
+        log("ℹ️ Auto screenshot is disabled in .env. Set AUTO_SCREENSHOT_ENABLED=true to enable.");
+    }
+}
+
+function log(msg) {
+    document.getElementById("console").textContent += "\n" + msg;
+}
+
+function toggleAutoScreenshot() {
+    const enabled = document.getElementById('autoScreenshotEnabled').checked;
+    document.getElementById('btnApplyInterval').disabled = !enabled;
+
+    if (enabled) {
+        if (!accessToken) {
+            log("❌ Please get access token first before enabling auto screenshot!");
+            document.getElementById('autoScreenshotEnabled').checked = false;
+            return;
+        }
+        startAutoScreenshot();
+    } else {
+        stopAutoScreenshot();
+    }
+}
+
+function applyInterval() {
+    const interval = parseInt(document.getElementById('screenshotInterval').value);
+    if (interval < 1 || interval > 60) {
+        alert('Interval must be between 1 and 60 minutes');
+        return;
+    }
+
+    autoScreenshotIntervalMinutes = interval;
+    log(`✅ Screenshot interval updated to ${interval} minutes`);
+
+    // Restart timer if auto screenshot is running
+    if (document.getElementById('autoScreenshotEnabled').checked) {
+        stopAutoScreenshot();
+        startAutoScreenshot();
+    }
+}
+
+function startAutoScreenshot() {
+    if (autoScreenshotTimer) {
+        clearInterval(autoScreenshotTimer);
+    }
+
+    log(`🔄 Auto screenshot started (every ${autoScreenshotIntervalMinutes} minutes)`);
+    updateAutoScreenshotStatus();
+
+    // Take first screenshot immediately
+    takeScreenshotAndUpload();
+
+    // Then schedule subsequent screenshots
+    autoScreenshotTimer = setInterval(() => {
+        takeScreenshotAndUpload();
+    }, autoScreenshotIntervalMinutes * 60 * 1000);
+}
+
+function stopAutoScreenshot() {
+    if (autoScreenshotTimer) {
+        clearInterval(autoScreenshotTimer);
+        autoScreenshotTimer = null;
+    }
+
+    log("⏸️ Auto screenshot stopped");
+    document.getElementById('autoScreenshotStatus').textContent = '';
+}
+
+function updateAutoScreenshotStatus() {
+    const statusEl = document.getElementById('autoScreenshotStatus');
+    const now = new Date();
+    const nextRun = new Date(now.getTime() + autoScreenshotIntervalMinutes * 60 * 1000);
+    statusEl.textContent = `Next screenshot at ${nextRun.toLocaleTimeString()}`;
+}
+
+async function takeScreenshotAndUpload() {
+    log("📸 Auto screenshot: Taking screenshot...");
+
+    const ip = getSelectedIP();
+    const url = `http://${ip}:8080/v2/task/screenshot?access_token=${accessToken}`;
+
+    try {
+        const res = await fetch("/api/screenshot", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_url: url
+            })
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ Screenshot failed: " + errorText);
+            return;
+        }
+
+        const data = await res.json();
+
+        if (data.success) {
+            log(`✅ Screenshot saved: ${data.filename}`);
+
+            // Display the screenshot
+            const screenshotArea = document.getElementById("screenshotArea");
+            const screenshotImg = document.getElementById("screenshotImg");
+            const screenshotInfo = document.getElementById("screenshotInfo");
+
+            screenshotImg.src = data.filepath + "?t=" + new Date().getTime();
+            screenshotInfo.textContent = `Saved: ${data.filename} (${data.size} bytes)`;
+            screenshotArea.classList.remove("hidden");
+
+            // Upload to API
+            await uploadScreenshotToAPI(data.filepath, ip);
+
+            // Update status for next run
+            updateAutoScreenshotStatus();
+        } else {
+            log("❌ Failed to save screenshot");
+        }
+
+    } catch (e) {
+        log("❌ Screenshot error: " + e.message);
+    }
+}
+
+async function uploadScreenshotToAPI(filepath, playerId = null) {
+    if (!appConfig.upload_api_url) {
+        log("⚠️ Upload API URL not configured in .env, skipping upload");
+        return;
+    }
+
+    log("📤 Uploading screenshot to API...");
+
+    try {
+        // Use playerUUID (from server), fallback to provided playerId or IP
+        const actualPlayerId = playerUUID || playerId || getSelectedIP();
+        const actualPlayerName = playerInfo.name || playerInfo.model || `Garlic Player ${actualPlayerId}`;
+
+        log(`   Player ID: ${actualPlayerId}`);
+
+        const res = await fetch("/api/upload-to-api", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                filepath: filepath,
+                player_id: actualPlayerId
+            })
+        });
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ Upload failed: " + errorText);
+            return;
+        }
+
+        const data = await res.json();
+
+        if (data.success) {
+            log("✅ Screenshot uploaded to API successfully!");
+            if (data.api_response && data.api_response.data) {
+                log(`   URL: ${data.api_response.data.url}`);
+            }
+        } else {
+            log("❌ Upload failed");
+            log(JSON.stringify(data));
+        }
+
+    } catch (e) {
+        log("❌ Upload error: " + e.message);
+    }
+}
+
+function handleIPChange() {
+    const ipSelect = document.getElementById("ip");
+    const customIPInput = document.getElementById("customIP");
+
+    if (ipSelect.value === "custom") {
+        customIPInput.classList.remove("hidden");
+        customIPInput.focus();
+    } else {
+        customIPInput.classList.add("hidden");
+    }
+}
+
+function getSelectedIP() {
+    const ipSelect = document.getElementById("ip");
+    const customIPInput = document.getElementById("customIP");
+
+    if (ipSelect.value === "custom") {
+        return customIPInput.value.trim() || "127.0.0.1";
+    }
+    return ipSelect.value;
+}
+
+async function getMyLocalIP() {
+    log("Detecting local IP addresses...");
+    log("⏳ Please wait, gathering network information...");
+
+    const ipSelect = document.getElementById("ip");
+    const detectedIPs = new Set();
+
+    // Keep localhost as default
+    detectedIPs.add("127.0.0.1");
+
+    function updateIPDropdown() {
+        const currentValue = ipSelect.value;
+        ipSelect.innerHTML = '';
+
+        const sortedIPs = Array.from(detectedIPs).sort((a, b) => {
+            if (a === '127.0.0.1') return -1;
+            if (b === '127.0.0.1') return 1;
+            return a.localeCompare(b);
+        });
+
+        sortedIPs.forEach(ip => {
+            const option = document.createElement('option');
+            option.value = ip;
+            option.textContent = ip === '127.0.0.1' ? `${ip} (localhost)` : ip;
+            if (ip === currentValue || (currentValue === '127.0.0.1' && ip === '127.0.0.1')) {
+                option.selected = true;
+            }
+            ipSelect.appendChild(option);
+        });
+
+        const customOption = document.createElement('option');
+        customOption.value = 'custom';
+        customOption.textContent = 'Custom IP...';
+        if (currentValue === 'custom') {
+            customOption.selected = true;
+        }
+        ipSelect.appendChild(customOption);
+    }
+
+    function isLocalIP(ip) {
+        if (!ip || ip.includes(':') || ip === '0.0.0.0') return false;
+        return ip.startsWith('192.168.') ||
+               ip.startsWith('10.') ||
+               (ip.startsWith('172.') && parseInt(ip.split('.')[1]) >= 16 && parseInt(ip.split('.')[1]) <= 31) ||
+               ip === '127.0.0.1';
+    }
+
+    function extractIPFromCandidate(candidateString) {
+        const ipMatch = /([0-9]{1,3}\.){3}[0-9]{1,3}/.exec(candidateString);
+        return ipMatch ? ipMatch[0] : null;
+    }
+
+    // Method 1: Use multiple STUN servers for better detection
+    const stunServers = [
+        'stun:stun.l.google.com:19302',
+        'stun:stun1.l.google.com:19302',
+        'stun:stun2.l.google.com:19302'
+    ];
+
+    try {
+        const pc = new RTCPeerConnection({
+            iceServers: stunServers.map(url => ({ urls: url }))
+        });
+
+        // Collect ICE candidates
+        const candidatePromise = new Promise((resolve) => {
+            const candidates = [];
+            let gatheringComplete = false;
+
+            pc.onicecandidate = (event) => {
+                if (event.candidate) {
+                    candidates.push(event.candidate);
+                    const ip = extractIPFromCandidate(event.candidate.candidate);
+
+                    if (ip && isLocalIP(ip) && !detectedIPs.has(ip)) {
+                        detectedIPs.add(ip);
+                        log(`✅ Found local IP: ${ip}`);
+                        updateIPDropdown();
+                    }
+                } else {
+                    // null candidate means gathering is complete
+                    gatheringComplete = true;
+                    resolve(candidates);
+                }
+            };
+
+            pc.onicegatheringstatechange = () => {
+                if (pc.iceGatheringState === 'complete' && !gatheringComplete) {
+                    gatheringComplete = true;
+                    resolve(candidates);
+                }
+            };
+
+            // Timeout after 5 seconds
+            setTimeout(() => {
+                if (!gatheringComplete) {
+                    gatheringComplete = true;
+                    resolve(candidates);
+                }
+            }, 5000);
+        });
+
+        // Create data channel and offer
+        pc.createDataChannel('');
+        const offer = await pc.createOffer();
+        await pc.setLocalDescription(offer);
+
+        // Wait for ICE gathering
+        await candidatePromise;
+        pc.close();
+
+        // Final summary
+        if (detectedIPs.size > 1) {
+            log(`✅ Detection complete! Found ${detectedIPs.size} IP addresses`);
+        } else {
+            log("⚠️ Only localhost detected.");
+            log("💡 Tip: Make sure you're connected to a network (WiFi/Ethernet)");
+            log("💡 Or manually select 'Custom IP...' to enter the Garlic Player IP");
+        }
+
+    } catch (e) {
+        log("❌ Error detecting IP: " + e.message);
+        log("💡 You can still use 'Custom IP...' to enter the IP manually");
+        console.error(e);
+    }
+
+    updateIPDropdown();
+}
+
+
+async function fetchPlayerUUID(silentMode = false) {
+    const ip = getSelectedIP();
+
+    if (!silentMode) {
+        log("🔍 Fetching Player UUID from server...");
+    }
+
+    try {
+        // Priority 1: Try to get current player_id from memory (real-time, most recent)
+        const currentResponse = await fetch(`http://localhost:3005/api/get-current-player-id`);
+        if (currentResponse.ok) {
+            const currentData = await currentResponse.json();
+            if (currentData.success && currentData.data && currentData.data.player_id) {
+                playerUUID = currentData.data.player_id;
+                log(`✅ Player UUID: ${playerUUID} (real-time from server memory)`);
+                if (!silentMode) {
+                    log(`   Last updated: ${currentData.data.last_updated}`);
+                }
+                return;
+            }
+        }
+
+        // Priority 2: Try to fetch UUID by IP from server storage
+        const uuidResponse = await fetch(`http://localhost:3005/api/get-player-id-by-ip/${ip}`);
+        if (uuidResponse.ok) {
+            const uuidData = await uuidResponse.json();
+            if (uuidData.success && uuidData.data && uuidData.data.player_id) {
+                playerUUID = uuidData.data.player_id;
+                log(`✅ Player UUID: ${playerUUID} (from server storage by IP)`);
+                if (!silentMode) {
+                    log(`   Retrieved from: /get-uuid-player endpoint`);
+                }
+                return;
+            }
+        }
+
+        // Priority 3: Fallback - UUID not found, refresh config to get latest default_player_id
+        log("⚠️ Player UUID not found in server storage");
+        log("   Make sure Garlic Player has sent its UUID to /get-uuid-player/:player_id/:filename");
+
+        // Refresh config to get latest default_player_id from memory (real-time)
+        const configResponse = await fetch('/api/config');
+        if (configResponse.ok) {
+            const latestConfig = await configResponse.json();
+            if (latestConfig.default_player_id) {
+                playerUUID = latestConfig.default_player_id;
+                log(`   Using default_player_id (real-time): ${playerUUID}`);
+                return;
+            }
+        }
+
+        // Priority 4: Ultimate fallback - use IP
+        playerUUID = ip;
+        log(`   Using IP address as fallback: ${ip}`);
+
+    } catch (e) {
+        log("⚠️ Error fetching UUID: " + e.message);
+        console.error(e);
+
+        // Fallback to IP address
+        playerUUID = ip;
+        log(`⚠️ Using IP address as fallback: ${playerUUID}`);
+    }
+}
+
+// UUID generation function removed - no longer needed
+// We now fetch UUID directly from server via /get-uuid-player endpoint
+
+async function getToken(silentMode = false) {
+    const ip = getSelectedIP();
+    const user = document.getElementById("username").value;
+    const pass = document.getElementById("password").value;
+
+    if (!silentMode) {
+        log("Requesting token...");
+    }
+    const targetUrl = `http://${ip}:8080/v2/oauth2/token`;
+    if (!silentMode) {
+        log(`Target URL: ${targetUrl}`);
+    }
+
+    try {
+        const res = await fetch("/api/proxy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_url: targetUrl,
+                method: "POST",
+                body: {
+                    grant_type: "password",
+                    username: user,
+                    password: pass
+                }
+            })
+        });
+
+        if (!silentMode) {
+            log(`Response Status: ${res.status} ${res.statusText}`);
+        }
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ HTTP Error: " + errorText);
+            return false;
+        }
+
+        const data = await res.json();
+        accessToken = data.access_token;
+
+        if (accessToken) {
+            log("✅ Token received: " + accessToken);
+
+            // Automatically get UUID from modelInfo
+            await fetchPlayerUUID(silentMode);
+
+            document.getElementById("btnModel").disabled = false;
+            document.getElementById("btnFiles").disabled = false;
+            document.getElementById("btnScreenshot").disabled = false;
+            document.getElementById("btnUpdateContent").disabled = false;
+            document.getElementById("btnReload").disabled = false;
+
+            return true;
+        } else {
+            log("❌ Failed to get token - no access_token in response");
+            if (!silentMode) {
+                log("Response data: " + JSON.stringify(data));
+            }
+            return false;
+        }
+
+    } catch (e) {
+        log("❌ Network Error: " + e.message);
+        if (!silentMode) {
+            log("Full error: " + e.toString());
+        }
+        console.error(e);
+        return false;
+    }
+}
+
+async function apiGet(path) {
+    const ip = getSelectedIP();
+    const url = `http://${ip}:8080${path}?access_token=${accessToken}`;
+    log("Calling GET " + url);
+
+    try {
+        const res = await fetch("/api/proxy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_url: url,
+                method: "GET"
+            })
+        });
+
+        log(`Response Status: ${res.status} ${res.statusText}`);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ HTTP Error: " + errorText);
+            return;
+        }
+
+        const data = await res.json();
+        log("✅ Success:");
+        log(JSON.stringify(data, null, 2));
+    } catch (e) {
+        log("❌ Network Error: " + e.message);
+        log("Full error: " + e.toString());
+        console.error(e);
+    }
+}
+
+async function apiPost(path, body = {}) {
+    const ip = getSelectedIP();
+    const url = `http://${ip}:8080${path}?access_token=${accessToken}`;
+    log("Calling POST " + url);
+    log("Request body: " + JSON.stringify(body));
+
+    try {
+        const res = await fetch("/api/proxy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_url: url,
+                method: "POST",
+                body: body
+            })
+        });
+
+        log(`Response Status: ${res.status} ${res.statusText}`);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ HTTP Error: " + errorText);
+            return;
+        }
+
+        const data = await res.json();
+        log("✅ Success:");
+        log(JSON.stringify(data, null, 2));
+    } catch (e) {
+        log("❌ Network Error: " + e.message);
+        log("Full error: " + e.toString());
+        console.error(e);
+    }
+}
+
+function getModelInfo() {
+    apiGet("/v2/system/modelInfo");
+}
+
+function listFiles() {
+    apiPost("/v2/files/find", { maxResults: "10", pageToken: "0" });
+}
+
+async function takeScreenshot() {
+    const ip = getSelectedIP();
+    const url = `http://${ip}:8080/v2/task/screenshot?access_token=${accessToken}`;
+    log("Taking screenshot...");
+    log(`Target URL: ${url}`);
+
+    try {
+        const res = await fetch("/api/screenshot", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_url: url
+            })
+        });
+
+        log(`Response Status: ${res.status} ${res.statusText}`);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ HTTP Error: " + errorText);
+            return;
+        }
+
+        const data = await res.json();
+
+        if (data.success) {
+            log("✅ Screenshot saved successfully!");
+            log(`Filename: ${data.filename}`);
+            log(`File size: ${data.size} bytes`);
+            log(`Timestamp: ${data.timestamp}`);
+
+            // Display the screenshot
+            const screenshotArea = document.getElementById("screenshotArea");
+            const screenshotImg = document.getElementById("screenshotImg");
+            const screenshotInfo = document.getElementById("screenshotInfo");
+
+            screenshotImg.src = data.filepath + "?t=" + new Date().getTime();
+            screenshotInfo.textContent = `Saved: ${data.filename} (${data.size} bytes)`;
+            screenshotArea.classList.remove("hidden");
+
+            // Auto upload to API
+            await uploadScreenshotToAPI(data.filepath, ip);
+        } else {
+            log("❌ Failed to save screenshot");
+            log(JSON.stringify(data));
+        }
+
+    } catch (e) {
+        log("❌ Network Error: " + e.message);
+        log("Full error: " + e.toString());
+        console.error(e);
+    }
+}
+
+async function updateContentUrl() {
+    const uri = document.getElementById("contentUri").value;
+
+    if (!uri || uri.trim() === "") {
+        log("❌ Error: Content URI cannot be empty!");
+        alert("Please enter a Content URI first!");
+        return;
+    }
+
+    const ip = getSelectedIP();
+    const url = `http://${ip}:8080/v2/app/start?access_token=${accessToken}`;
+    log("Updating content URL...");
+    log(`Target URL: ${url}`);
+    log(`Content URI: ${uri}`);
+
+    try {
+        const res = await fetch("/api/proxy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_url: url,
+                method: "POST",
+                body: {
+                    uri: uri
+                }
+            })
+        });
+
+        log(`Response Status: ${res.status} ${res.statusText}`);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ HTTP Error: " + errorText);
+            return;
+        }
+
+        const data = await res.json();
+        log("✅ Content URL updated successfully!");
+        log(JSON.stringify(data, null, 2));
+
+    } catch (e) {
+        log("❌ Network Error: " + e.message);
+        log("Full error: " + e.toString());
+        console.error(e);
+    }
+}
+
+async function reloadContent() {
+    const ip = getSelectedIP();
+    const url = `http://${ip}:8080/v2/app/switch?access_token=${accessToken}`;
+    log("Reloading content...");
+    log(`Target URL: ${url}`);
+
+    try {
+        const res = await fetch("/api/proxy", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+                target_url: url,
+                method: "POST",
+                body: {
+                    mode: "start"
+                }
+            })
+        });
+
+        log(`Response Status: ${res.status} ${res.statusText}`);
+
+        if (!res.ok) {
+            const errorText = await res.text();
+            log("❌ HTTP Error: " + errorText);
+            return;
+        }
+
+        const data = await res.json();
+        log("✅ Content reloaded successfully!");
+        log(JSON.stringify(data, null, 2));
+
+    } catch (e) {
+        log("❌ Network Error: " + e.message);
+        log("Full error: " + e.toString());
+        console.error(e);
+    }
+}
+</script>
+
+</body>
+</html>
